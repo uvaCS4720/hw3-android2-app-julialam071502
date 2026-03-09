@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class GameEntity(
     @PrimaryKey
     val id: String,
-    val eventId: String,
+    val eventId: String?,
     val gender: String,
     val gameDate: String,
     val awayTeamName: String,
