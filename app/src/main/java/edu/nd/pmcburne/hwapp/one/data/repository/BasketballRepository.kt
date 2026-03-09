@@ -53,6 +53,8 @@ class BasketballRepository(
             else    -> "pre"
         }
 
+        val gameDateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+
         val statusDetail = when (gameState) {
             "post" -> "Final"
             "in"   -> {
@@ -78,24 +80,24 @@ class BasketballRepository(
             else -> game.startTime ?: "TBD"
         }
 
-        val gameDateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        val safeId = game.gameID ?: "${awayName}_${homeName}_$gameDateStr"
 
         return GameEntity(
-            id            = "${game.gameID}_$gender",
-            eventId       = game.gameID,
-            gender        = gender,
-            gameDate      = gameDateStr,
-            awayTeamName  = awayName,
-            homeTeamName  = homeName,
-            awayScore     = game.away?.score,
-            homeScore     = game.home?.score,
-            gameState     = gameState,
-            displayClock  = game.contestClock,
-            period        = null,
-            statusDetail  = statusDetail,
-            awayWinner    = game.away?.winner ?: false,
-            homeWinner    = game.home?.winner ?: false,
-            startTime     = game.startTime
+            id           = "${safeId}_$gender",
+            eventId      = safeId,
+            gender       = gender,
+            gameDate     = gameDateStr,
+            awayTeamName = awayName,
+            homeTeamName = homeName,
+            awayScore    = game.away?.score,
+            homeScore    = game.home?.score,
+            gameState    = gameState,
+            displayClock = game.contestClock,
+            period       = null,
+            statusDetail = statusDetail,
+            awayWinner   = game.away?.winner ?: false,
+            homeWinner   = game.home?.winner ?: false,
+            startTime    = game.startTime
         )
     }
 }
