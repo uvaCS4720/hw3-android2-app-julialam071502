@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "edu.nd.pmcburne.hwapp.one"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "edu.nd.pmcburne.hwapp.one"
         minSdk = 27
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
