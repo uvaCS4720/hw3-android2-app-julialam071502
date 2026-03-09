@@ -6,11 +6,9 @@ import android.net.NetworkCapabilities
 import edu.nd.pmcburne.hwapp.one.data.local.GameDao
 import edu.nd.pmcburne.hwapp.one.data.local.GameEntity
 import edu.nd.pmcburne.hwapp.one.data.remote.BasketballApiService
-import edu.nd.pmcburne.hwapp.one.data.remote.Event
+import edu.nd.pmcburne.hwapp.one.data.remote.Game
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 class BasketballRepository(
@@ -21,8 +19,8 @@ class BasketballRepository(
     fun isNetworkAvailable(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = cm.activeNetwork ?: return false
-        val capabilities = cm.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     fun getCachedGames(gender: String, date: LocalDate): Flow<List<GameEntity>> {
@@ -31,69 +29,73 @@ class BasketballRepository(
     }
 
     suspend fun refreshScoreboard(gender: String, date: LocalDate) {
-        val year = date.format(DateTimeFormatter.ofPattern("yyyy"))
+        val year  = date.format(DateTimeFormatter.ofPattern("yyyy"))
         val month = date.format(DateTimeFormatter.ofPattern("MM"))
-        val day = date.format(DateTimeFormatter.ofPattern("dd"))
+        val day   = date.format(DateTimeFormatter.ofPattern("dd"))
         val response = apiService.getScoreboard(gender, year, month, day)
-        val entities = response.allEvents().mapNotNull { mapEventToEntity(it, gender, date) }
+        val entities = response.allEvents().map { mapGameToEntity(it, gender, date) }
         gameDao.upsertGames(entities)
     }
 
-    private fun mapEventToEntity(event: Event, gender: String, date: LocalDate): GameEntity? {
-        val competition = event.competitions?.firstOrNull() ?: return null
-        val competitors = competition.competitors ?: return null
+    private fun mapGameToEntity(game: Game, gender: String, date: LocalDate): GameEntity {
+        val awayName = game.away?.names?.full
+            ?: game.away?.names?.short
+            ?: game.away?.names?.char6
+            ?: "Unknown"
+        val homeName = game.home?.names?.full
+            ?: game.home?.names?.short
+            ?: game.home?.names?.char6
+            ?: "Unknown"
 
-        val away = competitors.firstOrNull { it.homeAway == "away" } ?: competitors.getOrNull(1)
-        val home = competitors.firstOrNull { it.homeAway == "home" } ?: competitors.getOrNull(0)
-
-        val awayName = away?.team?.displayName ?: away?.team?.location ?: "Unknown"
-        val homeName = home?.team?.displayName ?: home?.team?.location ?: "Unknown"
-
-        val status = competition.status
-        val gameState = status?.type?.state ?: "pre"
+        val gameState = when (game.gameState?.lowercase()) {
+            "final" -> "post"
+            "live"  -> "in"
+            else    -> "pre"
+        }
 
         val statusDetail = when (gameState) {
             "post" -> "Final"
-            "in" -> {
-                val period = status?.period
-                val clock = status?.displayClock
-                val label = if (gender == "women") {
-                    when (period) { 1 -> "1st Qtr"; 2 -> "2nd Qtr"; 3 -> "3rd Qtr"; 4 -> "4th Qtr"; else -> "OT" }
+            "in"   -> {
+                val period = game.currentPeriod ?: ""
+                val clock  = game.contestClock ?: ""
+                val label  = if (gender == "women") {
+                    when {
+                        period.contains("1", true) -> "1st Qtr"
+                        period.contains("2", true) -> "2nd Qtr"
+                        period.contains("3", true) -> "3rd Qtr"
+                        period.contains("4", true) -> "4th Qtr"
+                        else -> period
+                    }
                 } else {
-                    when (period) { 1 -> "1st Half"; 2 -> "2nd Half"; else -> "OT" }
+                    when {
+                        period.contains("1", true) -> "1st Half"
+                        period.contains("2", true) -> "2nd Half"
+                        else -> period
+                    }
                 }
-                if (clock != null) "$clock - $label" else label
+                if (clock.isNotEmpty()) "$clock - $label" else label
             }
-            else -> formatStartTime(event.date ?: competition.date)
+            else -> game.startTime ?: "TBD"
         }
 
         val gameDateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
 
         return GameEntity(
-            id = "${event.id}_$gender",
-            eventId = event.id,
-            gender = gender,
-            gameDate = gameDateStr,
-            awayTeamName = awayName,
-            homeTeamName = homeName,
-            awayScore = away?.score,
-            homeScore = home?.score,
-            gameState = gameState,
-            displayClock = status?.displayClock,
-            period = status?.period,
-            statusDetail = statusDetail,
-            awayWinner = away?.winner ?: false,
-            homeWinner = home?.winner ?: false,
-            startTime = event.date ?: competition.date
+            id            = "${game.gameID}_$gender",
+            eventId       = game.gameID,
+            gender        = gender,
+            gameDate      = gameDateStr,
+            awayTeamName  = awayName,
+            homeTeamName  = homeName,
+            awayScore     = game.away?.score,
+            homeScore     = game.home?.score,
+            gameState     = gameState,
+            displayClock  = game.contestClock,
+            period        = null,
+            statusDetail  = statusDetail,
+            awayWinner    = game.away?.winner ?: false,
+            homeWinner    = game.home?.winner ?: false,
+            startTime     = game.startTime
         )
-    }
-
-    private fun formatStartTime(isoDate: String?): String {
-        if (isoDate == null) return "TBD"
-        return try {
-            val zdt = ZonedDateTime.parse(isoDate)
-            val eastern = zdt.withZoneSameInstant(ZoneId.of("America/New_York"))
-            eastern.format(DateTimeFormatter.ofPattern("h:mm a 'ET'"))
-        } catch (e: Exception) { isoDate }
     }
 }
