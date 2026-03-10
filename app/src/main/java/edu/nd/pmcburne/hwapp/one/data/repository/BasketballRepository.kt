@@ -38,13 +38,13 @@ class BasketballRepository(
     }
 
     private fun mapGameToEntity(game: Game, gender: String, date: LocalDate): GameEntity {
-        val awayName = game.away?.names?.full
-            ?: game.away?.names?.short
-            ?: game.away?.names?.char6
+
+        val awayName = game.away?.names?.short?.takeIf { it.isNotEmpty() }
+            ?: game.away?.names?.char6?.takeIf { it.isNotEmpty() }
             ?: "Unknown"
-        val homeName = game.home?.names?.full
-            ?: game.home?.names?.short
-            ?: game.home?.names?.char6
+
+        val homeName = game.home?.names?.short?.takeIf { it.isNotEmpty() }
+            ?: game.home?.names?.char6?.takeIf { it.isNotEmpty() }
             ?: "Unknown"
 
         val gameState = when (game.gameState?.lowercase()) {
@@ -57,7 +57,7 @@ class BasketballRepository(
 
         val statusDetail = when (gameState) {
             "post" -> "Final"
-            "in"   -> {
+            "in" -> {
                 val period = game.currentPeriod ?: ""
                 val clock  = game.contestClock ?: ""
                 val label  = if (gender == "women") {
@@ -80,6 +80,7 @@ class BasketballRepository(
             else -> game.startTime ?: "TBD"
         }
 
+        // Safe ID in case gameID is null
         val safeId = game.gameID ?: "${awayName}_${homeName}_$gameDateStr"
 
         return GameEntity(

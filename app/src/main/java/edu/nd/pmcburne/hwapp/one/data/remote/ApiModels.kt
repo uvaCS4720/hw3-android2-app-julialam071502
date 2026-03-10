@@ -3,13 +3,16 @@ package edu.nd.pmcburne.hwapp.one.data.remote
 import com.google.gson.annotations.SerializedName
 
 data class ScoreboardResponse(
-    @SerializedName("games") val games: List<Game>? = null
+    @SerializedName("games") val games: List<GameWrapper>? = null
 ) {
-    fun allEvents(): List<Game> = games ?: emptyList()
+    fun allEvents(): List<Game> = games?.mapNotNull { it.game } ?: emptyList()
 }
+data class GameWrapper(
+    @SerializedName("game") val game: Game?
+)
 
 data class Game(
-    @SerializedName("gameID") val gameID: String,
+    @SerializedName("gameID") val gameID: String?,
     @SerializedName("away") val away: TeamData?,
     @SerializedName("home") val home: TeamData?,
     @SerializedName("gameState") val gameState: String?,
@@ -17,13 +20,13 @@ data class Game(
     @SerializedName("contestClock") val contestClock: String?,
     @SerializedName("startDate") val startDate: String?,
     @SerializedName("startTime") val startTime: String?,
-    @SerializedName("bracketRound") val bracketRound: String?
+    @SerializedName("title") val title: String?
 )
 
 data class TeamData(
     @SerializedName("score") val score: String?,
-    @SerializedName("names") val names: TeamNames?,
-    @SerializedName("winner") val winner: Boolean?
+    @SerializedName("winner") val winner: Boolean?,
+    @SerializedName("names") val names: TeamNames?
 )
 
 data class TeamNames(
